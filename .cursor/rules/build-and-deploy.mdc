@@ -1,0 +1,32 @@
+---
+description: ビルド成果物とデプロイに関するルール（sw.js / version.js の扱い）
+globs: local_app/sw.js,local_app/version.js,scripts/generate_version.sh
+alwaysApply: false
+---
+
+# ビルド成果物のコミットルール
+
+## ビルド時に自動生成・書き換えされるファイル
+
+以下のファイルは `scripts/generate_version.sh`（`build.sh` 経由）で毎回更新される：
+
+- `local_app/version.js` — `window.APP_INFO.buildTime` がビルド日時に更新される
+- `local_app/sw.js` — `CACHE_NAME` が `emr-v{VERSION}-{UNIX_TIMESTAMP}` に書き換えられる
+
+## 必ずコミットすること
+
+これらのファイルは **`.gitignore` に入れてはいけない**。理由：
+
+- Vercel等の静的デプロイではgitリポジトリの内容がそのまま配信される
+- `sw.js` の `CACHE_NAME` が変わらないと、クライアントのブラウザがService Workerの更新を検知できない
+- コミットしないとPWAのキャッシュが古いままになり、ユーザーにアプリの更新が届かない
+
+## 正しいデプロイフロー
+
+1. `./scripts/build.sh` を実行（`generate_version.sh` が自動で走る）
+2. `local_app/version.js` と `local_app/sw.js` の変更をコミット
+3. プッシュ → Vercel等にデプロイ
+
+## ビルド差分が出た場合の対応
+
+`git status` で `local_app/sw.js` や `local_app/version.js` に差分が出ている場合、それはビルドスクリプトの正常な出力であり、デプロイ前にコミットすべきものである。「gitignoreに追加」や「変更を破棄」してはいけない。
