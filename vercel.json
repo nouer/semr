@@ -1,0 +1,12 @@
+{
+  "rewrites": [
+    {
+      "source": "/openai/:path*",
+      "destination": "/api/openai?path=:path*"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/local_app/$1"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "name": "emr",
+  "version": "1.0.0",
+  "description": "電子カルテ (Electronic Medical Record)",
+  "main": "local_app/script.js",
+  "scripts": {
+    "test": "jest --coverage"
+  },
+  "jest": {
+    "testEnvironment": "jsdom",
+    "collectCoverage": true,
+    "coverageReporters": ["text", "lcov"],
+    "coverageDirectory": "coverage",
+    "projects": [
+      {
+        "displayName": "unit",
+        "testEnvironment": "jsdom",
+        "testMatch": ["**/emr.calc.test.js"],
+        "testPathIgnorePatterns": ["local_app/e2e.test.js"]
+      },
+      {
+        "displayName": "e2e",
+        "testEnvironment": "node",
+        "testMatch": ["**/e2e.test.js"]
+      }
+    ]
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "jest-environment-jsdom": "^29.7.0",
+    "puppeteer": "^21.5.0"
+  }
+}

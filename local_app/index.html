@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>電子カルテ - emr</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏥</text></svg>">
+    <link rel="stylesheet" href="style.css">
+    <!-- PWA -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0f766e">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="電子カルテ">
+    <link rel="apple-touch-icon" href="icons/icon-192.svg">
+    <!-- ライブラリ -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+</head>
+<body>
+    <!-- 左上固定: ページ先頭へ戻るボタン -->
+    <button id="scroll-to-top-btn" type="button" class="scroll-to-top-btn no-print" aria-label="一番上に移動" title="一番上に移動">
+        <svg class="scroll-to-top-icon" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M12 19V7" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+            <path d="M6 12L12 6L18 12" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+    </button>
+
+    <!-- 右上固定: バージョン情報 -->
+    <div id="app-info-display" class="app-info-display no-print"></div>
+
+    <!-- ヘッダー -->
+    <header class="app-header">
+        <h1>🏥 電子カルテ</h1>
+    </header>
+
+    <!-- 更新バナー（ヘッダー直下） -->
+    <div id="update-banner" class="update-banner" style="display:none;">
+        <span>新しいバージョンが利用可能です</span>
+        <button id="update-banner-btn" class="btn btn-sm" type="button">今すぐ更新</button>
+        <button id="update-banner-close" class="update-banner-close" type="button" aria-label="閉じる">&times;</button>
+    </div>
+
+    <!-- タブナビゲーション -->
+    <nav class="tab-nav" id="tab-nav">
+        <button data-tab="patients" class="active">📋 患者</button>
+        <button data-tab="karte">🩺 カルテ</button>
+        <button data-tab="prescription">💊 処方</button>
+        <button data-tab="lab">🔬 検査</button>
+        <button data-tab="history">📅 履歴</button>
+        <button data-tab="ai" id="ai-tab-btn" style="display:none;">🤖 AI診断</button>
+        <button data-tab="settings">⚙️ 設定</button>
+    </nav>
+
+    <!-- 患者タブ -->
+    <div id="tab-patients" class="tab-content active">
+        <div class="card">
+            <div class="search-bar">
+                <input type="text" id="patient-search" placeholder="患者検索（氏名・ふりがな・ID）" autocomplete="off">
+            </div>
+            <div id="patient-list" class="patient-list">
+                <!-- 患者カードが動的に挿入される -->
+            </div>
+            <button class="btn btn-primary btn-block" id="add-patient-btn">＋ 新規患者登録</button>
+        </div>
+        <div id="patient-form-message" class="message"></div>
+    </div>
+
+    <!-- カルテタブ -->
+    <div id="tab-karte" class="tab-content">
+        <!-- 患者未選択時 -->
+        <div id="no-patient-selected" class="card">
+            <p class="text-center text-muted">患者タブから患者を選択してください</p>
+        </div>
+        <!-- 患者選択時 -->
+        <div id="karte-content" style="display:none;">
+            <!-- 患者情報バー -->
+            <div id="selected-patient-bar" class="patient-info-bar"></div>
+            <!-- アレルギー警告 -->
+            <div id="allergy-warning" class="allergy-warning" style="display:none;"></div>
+            <!-- SOAP入力フォーム -->
+            <div class="card">
+                <h3>📝 診療記録 (SOAP)</h3>
+                <div class="form-group">
+                    <label>受診日時</label>
+                    <input type="datetime-local" id="input-visited-at" autocomplete="off">
+                </div>
+                <div class="soap-form">
+                    <div class="soap-field">
+                        <label class="soap-label soap-s">S - 主訴（Subjective）</label>
+                        <textarea id="input-soap-s" rows="3" placeholder="患者の自覚症状・訴え" autocomplete="off"></textarea>
+                    </div>
+                    <div class="soap-field">
+                        <label class="soap-label soap-o">O - 所見（Objective）</label>
+                        <textarea id="input-soap-o" rows="3" placeholder="施術者による客観的所見" autocomplete="off"></textarea>
+                    </div>
+                    <div class="soap-field">
+                        <label class="soap-label soap-a">A - 評価（Assessment）</label>
+                        <textarea id="input-soap-a" rows="2" placeholder="診断・評価" autocomplete="off"></textarea>
+                    </div>
+                    <div class="soap-field">
+                        <label class="soap-label soap-p">P - 計画（Plan）</label>
+                        <textarea id="input-soap-p" rows="2" placeholder="治療計画・次回方針" autocomplete="off"></textarea>
+                    </div>
+                </div>
+                <!-- 前回Plan参照 -->
+                <div id="prev-plan-hint" class="prev-plan-hint" style="display:none;"></div>
+            </div>
+            <!-- バイタルサイン入力 -->
+            <div class="card">
+                <h3>💓 バイタルサイン</h3>
+                <div class="vitals-grid">
+                    <div class="form-group">
+                        <label>体温 (℃)</label>
+                        <input type="number" id="input-temperature" step="0.1" min="34" max="42" placeholder="36.5" autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                        <label>収縮期血圧 (mmHg)</label>
+                        <input type="number" id="input-systolic" min="50" max="300" placeholder="120" autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                        <label>拡張期血圧 (mmHg)</label>
+                        <input type="number" id="input-diastolic" min="30" max="200" placeholder="80" autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                        <label>脈拍 (bpm)</label>
+                        <input type="number" id="input-pulse" min="20" max="300" placeholder="72" autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                        <label>SpO2 (%)</label>
+                        <input type="number" id="input-spo2" min="50" max="100" placeholder="98" autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                        <label>呼吸数 (回/分)</label>
+                        <input type="number" id="input-respiratory-rate" min="1" max="60" placeholder="16" autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                        <label>体重 (kg)</label>
+                        <input type="number" id="input-weight" step="0.1" min="1" max="300" placeholder="65.0" autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                        <label>身長 (cm)</label>
+                        <input type="number" id="input-height" min="30" max="250" placeholder="170" autocomplete="off">
+                    </div>
+                </div>
+            </div>
+            <!-- 施術メモ -->
+            <div class="card">
+                <div class="form-group">
+                    <label>施術内容メモ</label>
+                    <textarea id="input-treatment-memo" rows="2" placeholder="施術内容の記録" autocomplete="off"></textarea>
+                </div>
+            </div>
+            <!-- 写真添付 -->
+            <div class="card">
+                <h3>📷 写真添付</h3>
+                <div class="media-attach-area" id="record-media-area" data-message-id="record-message">
+                    <div class="media-drop-zone">
+                        <p>ここに画像をドラッグ&ドロップ、または</p>
+                        <label class="btn btn-sm btn-secondary media-select-btn">
+                            ファイルを選択
+                            <input type="file" accept="image/*" multiple class="media-file-input" style="display:none;">
+                        </label>
+                        <p class="media-hint">最大5枚・JPEG自動変換</p>
+                    </div>
+                    <div class="media-thumb-grid"></div>
+                </div>
+            </div>
+            <!-- 保存ボタン -->
+            <button class="btn btn-primary btn-block" id="save-record-btn">💾 診療記録を保存</button>
+            <div id="record-message" class="message"></div>
+            <!-- 直近記録サマリー -->
+            <div class="card" id="recent-records-section">
+                <h3>📋 直近の記録</h3>
+                <div id="recent-records-list"></div>
+            </div>
+            <!-- バイタルグラフ -->
+            <div class="card">
+                <h3>📊 バイタル推移</h3>
+                <div class="chart-controls">
+                    <button class="btn btn-sm chart-period-btn" data-period="7">7日</button>
+                    <button class="btn btn-sm chart-period-btn active" data-period="30">30日</button>
+                    <button class="btn btn-sm chart-period-btn" data-period="90">90日</button>
+                    <button class="btn btn-sm chart-period-btn" data-period="all">全期間</button>
+                </div>
+                <div class="chart-container">
+                    <canvas id="vitals-chart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 処方タブ -->
+    <div id="tab-prescription" class="tab-content">
+        <div id="no-patient-prescription" class="card">
+            <p class="text-center text-muted">患者タブから患者を選択してください</p>
+        </div>
+        <div id="prescription-content" style="display:none;">
+            <div id="prescription-patient-bar" class="patient-info-bar"></div>
+            <div class="card">
+                <h3>💊 処方入力</h3>
+                <div class="form-group">
+                    <label>処方日</label>
+                    <input type="date" id="input-prescribed-at" autocomplete="off">
+                </div>
+                <div class="form-group">
+                    <label>薬剤名 *</label>
+                    <input type="text" id="input-medicine" placeholder="薬剤名" autocomplete="off">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>用量</label>
+                        <input type="text" id="input-dosage" placeholder="1回1錠" autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                        <label>用法</label>
+                        <input type="text" id="input-frequency" placeholder="毎食後" autocomplete="off">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>処方日数</label>
+                        <input type="number" id="input-days" min="1" max="365" placeholder="7" autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                        <label>備考</label>
+                        <input type="text" id="input-prescription-memo" placeholder="備考" autocomplete="off">
+                    </div>
+                </div>
+                <button class="btn btn-primary btn-block" id="save-prescription-btn">💾 処方を保存</button>
+                <div id="prescription-message" class="message"></div>
+            </div>
+            <div class="card">
+                <h3>📋 処方履歴</h3>
+                <div id="prescription-list"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 検査タブ -->
+    <div id="tab-lab" class="tab-content">
+        <div id="no-patient-lab" class="card">
+            <p class="text-center text-muted">患者タブから患者を選択してください</p>
+        </div>
+        <div id="lab-content" style="display:none;">
+            <div id="lab-patient-bar" class="patient-info-bar"></div>
+            <!-- カテゴリフィルタ -->
+            <div class="card">
+                <div class="filter-buttons">
+                    <button class="btn btn-sm filter-btn active" data-category="all">全て</button>
+                    <button class="btn btn-sm filter-btn" data-category="blood">🩸 血液</button>
+                    <button class="btn btn-sm filter-btn" data-category="urine">🧪 尿</button>
+                    <button class="btn btn-sm filter-btn" data-category="image">📷 画像</button>
+                    <button class="btn btn-sm filter-btn" data-category="other">📄 その他</button>
+                </div>
+            </div>
+            <!-- 検査グラフ -->
+            <div class="card">
+                <h3>📊 検査値推移</h3>
+                <div class="chart-container">
+                    <canvas id="lab-chart"></canvas>
+                </div>
+            </div>
+            <!-- 検査入力フォーム -->
+            <div class="card">
+                <h3>🔬 検査結果入力</h3>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>検査日 *</label>
+                        <input type="date" id="input-examined-at" autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                        <label>検査種別 *</label>
+                        <select id="input-lab-category">
+                            <option value="blood">血液検査</option>
+                            <option value="urine">尿検査</option>
+                            <option value="image">画像検査</option>
+                            <option value="other">その他</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>検査項目名 *</label>
+                    <input type="text" id="input-lab-item" placeholder="例: 白血球数" autocomplete="off">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>検査値 *</label>
+                        <input type="text" id="input-lab-value" placeholder="例: 5800" autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                        <label>単位</label>
+                        <input type="text" id="input-lab-unit" placeholder="例: /μL" autocomplete="off">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>基準値下限</label>
+                        <input type="text" id="input-lab-ref-min" placeholder="例: 3500" autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                        <label>基準値上限</label>
+                        <input type="text" id="input-lab-ref-max" placeholder="例: 9700" autocomplete="off">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>判定</label>
+                        <select id="input-lab-judgment">
+                            <option value="">自動判定</option>
+                            <option value="normal">正常</option>
+                            <option value="caution">要注意</option>
+                            <option value="abnormal">異常</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>備考</label>
+                        <input type="text" id="input-lab-memo" placeholder="備考" autocomplete="off">
+                    </div>
+                </div>
+                <!-- 写真添付 -->
+                <div class="media-attach-area" id="lab-media-area" data-message-id="lab-message" style="margin-top:12px;">
+                    <div class="media-drop-zone">
+                        <p>画像を添付（ドラッグ&ドロップ可）</p>
+                        <label class="btn btn-sm btn-secondary media-select-btn">
+                            📷 ファイルを選択
+                            <input type="file" accept="image/*" multiple class="media-file-input" style="display:none;">
+                        </label>
+                        <p class="media-hint">最大5枚</p>
+                    </div>
+                    <div class="media-thumb-grid"></div>
+                </div>
+                <button class="btn btn-primary btn-block" id="save-lab-btn">💾 検査結果を保存</button>
+                <div id="lab-message" class="message"></div>
+            </div>
+            <!-- 検査結果一覧 -->
+            <div class="card">
+                <h3>📋 検査結果一覧</h3>
+                <div id="lab-results-list"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 履歴タブ -->
+    <div id="tab-history" class="tab-content">
+        <div id="no-patient-history" class="card">
+            <p class="text-center text-muted">患者タブから患者を選択してください</p>
+        </div>
+        <div id="history-content" style="display:none;">
+            <div id="history-patient-bar" class="patient-info-bar"></div>
+            <div class="card">
+                <div class="history-controls">
+                    <h3>📅 診療履歴</h3>
+                    <button class="btn btn-sm" id="sort-toggle-btn">🔄 並び替え</button>
+                </div>
+                <div id="timeline-container" class="timeline-container"></div>
+                <div id="timeline-pagination" class="pagination"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- AI診断タブ -->
+    <div id="tab-ai" class="tab-content">
+        <div class="card ai-disclaimer">
+            <p>⚠️ AI診断は参考情報です。医療行為・施術行為の最終判断は必ず施術者が行ってください。</p>
+        </div>
+        <div id="ai-patient-bar" class="patient-info-bar" style="display:none;"></div>
+        <div class="card">
+            <button class="btn btn-primary btn-block" id="ai-diagnose-btn" disabled>🤖 AI診断を開始</button>
+            <div id="ai-chat-container" class="ai-chat-container" style="display:none;">
+                <div class="ai-chat-messages" id="ai-chat-messages"></div>
+            </div>
+            <div id="ai-suggestions-container"></div>
+            <div class="ai-followup" id="ai-followup" style="display:none;">
+                <textarea id="ai-followup-input" rows="2" placeholder="追加で質問する..." autocomplete="off"></textarea>
+                <button class="btn btn-primary" id="ai-followup-btn">送信</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 設定タブ -->
+    <div id="tab-settings" class="tab-content">
+        <!-- データ管理 -->
+        <div class="card">
+            <h3>📂 データ管理</h3>
+            <div class="settings-buttons">
+                <button class="btn btn-primary" id="export-btn">📤 エクスポート</button>
+                <label class="btn btn-secondary">
+                    📥 インポート
+                    <input type="file" id="import-file" accept=".json" style="display:none;">
+                </label>
+            </div>
+            <div id="data-message" class="message"></div>
+            <hr>
+            <button class="btn btn-danger btn-sm" id="delete-all-btn">🗑️ 全データ削除</button>
+        </div>
+        <!-- AI診断設定 -->
+        <div class="card">
+            <h3>🤖 AI診断設定</h3>
+            <div class="form-group">
+                <label>OpenAI API Key</label>
+                <input type="password" id="input-api-key" placeholder="sk-..." autocomplete="off">
+                <button class="btn btn-sm" id="save-api-key-btn">保存</button>
+            </div>
+            <div class="form-group">
+                <label>利用モデル</label>
+                <select id="ai-model-select"></select>
+                <div id="ai-model-info" class="model-info"></div>
+            </div>
+            <div class="form-group">
+                <label>AI向け備考</label>
+                <textarea id="input-ai-memo" rows="3" placeholder="施術方針、専門分野など" autocomplete="off"></textarea>
+                <button class="btn btn-sm" id="save-ai-memo-btn">保存</button>
+            </div>
+            <div id="ai-settings-message" class="message"></div>
+        </div>
+        <!-- アプリ情報 -->
+        <div class="card">
+            <h3>ℹ️ アプリ情報</h3>
+            <div id="app-version-info"></div>
+            <button class="btn btn-sm" id="check-update-btn">🔄 更新を確認</button>
+            <div id="update-check-status"></div>
+        </div>
+    </div>
+
+    <!-- 確認ダイアログ -->
+    <div id="confirm-overlay" class="overlay">
+        <div class="overlay-content">
+            <h3 id="confirm-title">確認</h3>
+            <p id="confirm-message">この操作を実行しますか？</p>
+            <div class="btn-group">
+                <button class="btn btn-secondary" id="confirm-cancel">キャンセル</button>
+                <button class="btn btn-danger" id="confirm-ok">実行</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 患者登録/編集モーダル -->
+    <div id="patient-form-overlay" class="overlay">
+        <div class="overlay-content overlay-content-wide">
+            <h3 id="patient-form-title">新規患者登録</h3>
+            <form id="patient-form" autocomplete="off">
+                <input type="hidden" id="edit-patient-id">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>患者コード</label>
+                        <input type="text" id="input-patient-code" placeholder="自動採番" autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                        <label>氏名 *</label>
+                        <input type="text" id="input-patient-name" placeholder="山田 太郎" required autocomplete="off">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>ふりがな</label>
+                        <input type="text" id="input-patient-kana" placeholder="やまだ たろう" autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                        <label>生年月日 *</label>
+                        <input type="date" id="input-patient-birth" required autocomplete="off">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>性別 *</label>
+                        <select id="input-patient-gender" required>
+                            <option value="">選択してください</option>
+                            <option value="male">男性</option>
+                            <option value="female">女性</option>
+                            <option value="other">その他</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>電話番号</label>
+                        <input type="tel" id="input-patient-phone" placeholder="090-1234-5678" autocomplete="off">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>メールアドレス</label>
+                        <input type="email" id="input-patient-email" placeholder="example@mail.com" autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                        <label>保険証番号</label>
+                        <input type="text" id="input-patient-insurance" placeholder="12345678" autocomplete="off">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>住所</label>
+                    <input type="text" id="input-patient-address" placeholder="東京都渋谷区..." autocomplete="off">
+                </div>
+                <div class="form-group">
+                    <label>緊急連絡先</label>
+                    <div class="form-row">
+                        <input type="text" id="input-emergency-name" placeholder="氏名" autocomplete="off">
+                        <input type="text" id="input-emergency-relationship" placeholder="続柄" autocomplete="off">
+                        <input type="tel" id="input-emergency-phone" placeholder="電話番号" autocomplete="off">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>初診日</label>
+                        <input type="date" id="input-patient-first-visit" autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                        <label>担当施術者</label>
+                        <input type="text" id="input-patient-practitioner" placeholder="田中 先生" autocomplete="off">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>備考</label>
+                    <textarea id="input-patient-memo" rows="2" placeholder="備考" autocomplete="off"></textarea>
+                </div>
+                <!-- アレルギー一覧 -->
+                <div class="form-section">
+                    <h4>⚠️ アレルギー情報</h4>
+                    <div id="allergy-list-form"></div>
+                    <button type="button" class="btn btn-sm btn-secondary" id="add-allergy-btn">＋ アレルギーを追加</button>
+                </div>
+                <!-- 既往歴一覧 -->
+                <div class="form-section">
+                    <h4>📋 既往歴</h4>
+                    <div id="history-list-form"></div>
+                    <button type="button" class="btn btn-sm btn-secondary" id="add-history-btn">＋ 既往歴を追加</button>
+                </div>
+                <!-- 写真添付 -->
+                <div class="form-section">
+                    <h4>📷 写真添付</h4>
+                    <div class="media-attach-area" id="patient-media-area" data-message-id="patient-form-message">
+                        <div class="media-drop-zone">
+                            <p>画像を添付（ドラッグ&ドロップ可）</p>
+                            <label class="btn btn-sm btn-secondary media-select-btn">
+                                ファイルを選択
+                                <input type="file" accept="image/*" multiple class="media-file-input" style="display:none;">
+                            </label>
+                            <p class="media-hint">最大5枚</p>
+                        </div>
+                        <div class="media-thumb-grid"></div>
+                    </div>
+                </div>
+                <div class="btn-group" style="justify-content: flex-end; margin-top: 16px;">
+                    <button type="button" class="btn btn-secondary" id="patient-form-cancel">キャンセル</button>
+                    <button type="submit" class="btn btn-primary" id="patient-form-save">保存</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 診療記録編集モーダル -->
+    <div id="edit-record-overlay" class="overlay">
+        <div class="overlay-content overlay-content-wide">
+            <h3>診療記録を編集</h3>
+            <form id="edit-record-form" autocomplete="off">
+                <input type="hidden" id="edit-record-id">
+                <div class="form-group">
+                    <label>受診日時</label>
+                    <input type="datetime-local" id="edit-visited-at" autocomplete="off">
+                </div>
+                <div class="soap-form">
+                    <div class="soap-field">
+                        <label class="soap-label soap-s">S - 主訴</label>
+                        <textarea id="edit-soap-s" rows="3" autocomplete="off"></textarea>
+                    </div>
+                    <div class="soap-field">
+                        <label class="soap-label soap-o">O - 所見</label>
+                        <textarea id="edit-soap-o" rows="3" autocomplete="off"></textarea>
+                    </div>
+                    <div class="soap-field">
+                        <label class="soap-label soap-a">A - 評価</label>
+                        <textarea id="edit-soap-a" rows="2" autocomplete="off"></textarea>
+                    </div>
+                    <div class="soap-field">
+                        <label class="soap-label soap-p">P - 計画</label>
+                        <textarea id="edit-soap-p" rows="2" autocomplete="off"></textarea>
+                    </div>
+                </div>
+                <h4>バイタルサイン</h4>
+                <div class="vitals-grid">
+                    <div class="form-group">
+                        <label>体温 (℃)</label>
+                        <input type="number" id="edit-temperature" step="0.1" min="34" max="42" autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                        <label>収縮期血圧</label>
+                        <input type="number" id="edit-systolic" min="50" max="300" autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                        <label>拡張期血圧</label>
+                        <input type="number" id="edit-diastolic" min="30" max="200" autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                        <label>脈拍</label>
+                        <input type="number" id="edit-pulse" min="20" max="300" autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                        <label>SpO2</label>
+                        <input type="number" id="edit-spo2" min="50" max="100" autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                        <label>呼吸数</label>
+                        <input type="number" id="edit-respiratory-rate" min="1" max="60" autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                        <label>体重 (kg)</label>
+                        <input type="number" id="edit-weight" step="0.1" min="1" max="300" autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                        <label>身長 (cm)</label>
+                        <input type="number" id="edit-height" min="30" max="250" autocomplete="off">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>施術内容メモ</label>
+                    <textarea id="edit-treatment-memo" rows="2" autocomplete="off"></textarea>
+                </div>
+                <div class="btn-group" style="justify-content: flex-end;">
+                    <button type="button" class="btn btn-secondary" id="edit-record-cancel">キャンセル</button>
+                    <button type="submit" class="btn btn-primary" id="edit-record-save">保存</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 処方編集モーダル -->
+    <div id="edit-prescription-overlay" class="overlay">
+        <div class="overlay-content">
+            <h3>処方を編集</h3>
+            <form id="edit-prescription-form" autocomplete="off">
+                <input type="hidden" id="edit-prescription-id">
+                <div class="form-group">
+                    <label>処方日</label>
+                    <input type="date" id="edit-prescribed-at" autocomplete="off">
+                </div>
+                <div class="form-group">
+                    <label>薬剤名 *</label>
+                    <input type="text" id="edit-medicine" autocomplete="off">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>用量</label>
+                        <input type="text" id="edit-dosage" autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                        <label>用法</label>
+                        <input type="text" id="edit-frequency" autocomplete="off">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>処方日数</label>
+                        <input type="number" id="edit-days" min="1" max="365" autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                        <label>備考</label>
+                        <input type="text" id="edit-prescription-memo" autocomplete="off">
+                    </div>
+                </div>
+                <div class="btn-group" style="justify-content: flex-end;">
+                    <button type="button" class="btn btn-secondary" id="edit-prescription-cancel">キャンセル</button>
+                    <button type="submit" class="btn btn-primary" id="edit-prescription-save">保存</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 検査結果編集モーダル -->
+    <div id="edit-lab-overlay" class="overlay">
+        <div class="overlay-content">
+            <h3>検査結果を編集</h3>
+            <form id="edit-lab-form" autocomplete="off">
+                <input type="hidden" id="edit-lab-id">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>検査日 *</label>
+                        <input type="date" id="edit-examined-at" autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                        <label>検査種別 *</label>
+                        <select id="edit-lab-category">
+                            <option value="blood">血液検査</option>
+                            <option value="urine">尿検査</option>
+                            <option value="image">画像検査</option>
+                            <option value="other">その他</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>検査項目名 *</label>
+                    <input type="text" id="edit-lab-item" autocomplete="off">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>検査値 *</label>
+                        <input type="text" id="edit-lab-value" autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                        <label>単位</label>
+                        <input type="text" id="edit-lab-unit" autocomplete="off">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>基準値下限</label>
+                        <input type="text" id="edit-lab-ref-min" autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                        <label>基準値上限</label>
+                        <input type="text" id="edit-lab-ref-max" autocomplete="off">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>判定</label>
+                        <select id="edit-lab-judgment">
+                            <option value="">自動判定</option>
+                            <option value="normal">正常</option>
+                            <option value="caution">要注意</option>
+                            <option value="abnormal">異常</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>備考</label>
+                        <input type="text" id="edit-lab-memo" autocomplete="off">
+                    </div>
+                </div>
+                <div class="btn-group" style="justify-content: flex-end;">
+                    <button type="button" class="btn btn-secondary" id="edit-lab-cancel">キャンセル</button>
+                    <button type="submit" class="btn btn-primary" id="edit-lab-save">保存</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 写真ライトボックス -->
+    <div id="media-lightbox-overlay" class="overlay" onclick="closeLightbox()">
+        <div class="media-lightbox-content" onclick="event.stopPropagation()">
+            <button class="media-lightbox-close" onclick="closeLightbox()">&times;</button>
+            <img id="media-lightbox-img" src="" alt="拡大画像">
+        </div>
+    </div>
+
+    <script src="version.js"></script>
+    <script src="emr.calc.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>

@@ -1,0 +1,40 @@
+{
+    "name": "電子カルテ",
+    "short_name": "カルテ",
+    "description": "ブラウザ完結型の電子カルテアプリケーション",
+    "start_url": "/index.html",
+    "display": "standalone",
+    "orientation": "portrait",
+    "background_color": "#ffffff",
+    "theme_color": "#0f766e",
+    "icons": [
+        {
+            "src": "/icons/icon-192.svg",
+            "sizes": "192x192",
+            "type": "image/svg+xml"
+        },
+        {
+            "src": "/icons/icon-512.svg",
+            "sizes": "512x512",
+            "type": "image/svg+xml"
+        },
+        {
+            "src": "/icons/icon-maskable.svg",
+            "sizes": "512x512",
+            "type": "image/svg+xml",
+            "purpose": "maskable"
+        }
+    ],
+    "shortcuts": [
+        {
+            "name": "患者一覧",
+            "url": "/index.html?tab=patients",
+            "icons": [{ "src": "/icons/icon-192.svg", "sizes": "192x192" }]
+        },
+        {
+            "name": "カルテ記録",
+            "url": "/index.html?tab=karte",
+            "icons": [{ "src": "/icons/icon-192.svg", "sizes": "192x192" }]
+        }
+    ]
+}
