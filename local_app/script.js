@@ -2714,63 +2714,94 @@ async function importData(event) {
             return;
         }
 
+        // 進捗表示の初期化
+        const totalItems = pCount + rCount + rxCount + lCount + mCount;
+        let processedItems = 0;
+        const msgEl = document.getElementById('data-message');
+        msgEl.innerHTML = '<span class="progress-text"></span><div class="progress-bar-container"><div class="progress-bar-fill"></div></div>';
+        msgEl.className = 'message show progress';
+        const progressText = msgEl.querySelector('.progress-text');
+        const progressBar = msgEl.querySelector('.progress-bar-fill');
+
+        function updateProgress(label) {
+            const pct = totalItems > 0 ? Math.round((processedItems / totalItems) * 100) : 0;
+            progressText.textContent = `${label}（${pct}%  ${processedItems.toLocaleString()} / ${totalItems.toLocaleString()}件）`;
+            progressBar.style.width = pct + '%';
+        }
+
+        updateProgress('インポート準備中...');
+
         // 既存IDを取得
         const existingPatients = await getAllPatients();
         const existingPatientIds = new Set(existingPatients.map(p => p.id));
 
         let importedPatients = 0;
         for (const p of data.patients) {
-            if (!p.id) continue;
-            if (existingPatientIds.has(p.id)) continue;
+            if (!p.id) { processedItems++; continue; }
+            if (existingPatientIds.has(p.id)) { processedItems++; continue; }
             await addPatient(p);
             importedPatients++;
+            processedItems++;
+            if (processedItems % 10 === 0) updateProgress('患者データをインポート中...');
         }
+        updateProgress('患者データ完了、記録をインポート中...');
 
         // 各患者のrecords取得用キャッシュ
         let importedRecords = 0;
         for (const r of data.records) {
-            if (!r.id) continue;
+            if (!r.id) { processedItems++; continue; }
             try {
                 const existing = await getRecord(r.id);
-                if (existing) continue;
+                if (existing) { processedItems++; continue; }
             } catch (e) { /* not found */ }
             await addRecord(r);
             importedRecords++;
+            processedItems++;
+            if (processedItems % 50 === 0) updateProgress('記録をインポート中...');
         }
+        updateProgress('記録完了、処方をインポート中...');
 
         let importedPrescriptions = 0;
         for (const rx of data.prescriptions) {
-            if (!rx.id) continue;
+            if (!rx.id) { processedItems++; continue; }
             try {
                 await addPrescription(rx);
                 importedPrescriptions++;
             } catch (e) {
                 // 重複IDはスキップ
             }
+            processedItems++;
+            if (processedItems % 50 === 0) updateProgress('処方をインポート中...');
         }
+        updateProgress('処方完了、検査をインポート中...');
 
         let importedLabResults = 0;
         for (const l of data.labResults) {
-            if (!l.id) continue;
+            if (!l.id) { processedItems++; continue; }
             try {
                 await addLabResult(l);
                 importedLabResults++;
             } catch (e) {
                 // 重複IDはスキップ
             }
+            processedItems++;
+            if (processedItems % 50 === 0) updateProgress('検査をインポート中...');
         }
 
         // メディアの復元
         let importedMedia = 0;
         if (data.media && Array.isArray(data.media)) {
+            updateProgress('メディアをインポート中...');
             for (const m of data.media) {
-                if (!m.id) continue;
+                if (!m.id) { processedItems++; continue; }
                 try {
                     await addToStore('media', m);
                     importedMedia++;
                 } catch (e) {
                     // 重複IDはスキップ
                 }
+                processedItems++;
+                if (processedItems % 10 === 0) updateProgress('メディアをインポート中...');
             }
         }
 
