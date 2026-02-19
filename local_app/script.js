@@ -3639,13 +3639,13 @@ function initVersionInfo() {
     const info = window.APP_INFO || {};
 
     const infoDisplay = document.getElementById('app-info-display');
-    if (infoDisplay && info.version) {
-        infoDisplay.innerHTML = `Ver: ${info.version}<br>Build: ${info.buildTime || '---'}`;
+    if (infoDisplay) {
+        infoDisplay.textContent = `Build: ${info.buildTime || '---'}`;
     }
 
     const versionDetail = document.getElementById('app-version-info');
-    if (versionDetail && info.version) {
-        versionDetail.textContent = `バージョン: ${info.version}`;
+    if (versionDetail) {
+        versionDetail.textContent = `Build: ${info.buildTime || '---'}`;
     }
 }
 
