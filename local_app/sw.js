@@ -3,7 +3,7 @@
  * アセットキャッシュによる完全オフライン対応
  */
 
-const CACHE_NAME = 'emr-v1.0.0-1771485402';
+const CACHE_NAME = 'emr-v1.0.0-1771498698';
 
 const PRECACHE_ASSETS = [
     '/',

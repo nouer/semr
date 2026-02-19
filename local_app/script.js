@@ -2258,7 +2258,7 @@ async function refreshVitalsChart() {
     if (!selectedPatientId) return;
 
     const records = await getRecordsByPatient(selectedPatientId);
-    let filtered = [...records].reverse(); // 古い順
+    let filtered = [...records].sort((a, b) => new Date(a.visitedAt) - new Date(b.visitedAt)); // 日付昇順
 
     if (currentVitalsPeriod !== 'all') {
         const cutoff = new Date();
