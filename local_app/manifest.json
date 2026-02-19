@@ -9,19 +9,19 @@
     "theme_color": "#0f766e",
     "icons": [
         {
-            "src": "/icons/icon-192.svg",
+            "src": "/icons/icon-192.png",
             "sizes": "192x192",
-            "type": "image/svg+xml"
+            "type": "image/png"
         },
         {
-            "src": "/icons/icon-512.svg",
+            "src": "/icons/icon-512.png",
             "sizes": "512x512",
-            "type": "image/svg+xml"
+            "type": "image/png"
         },
         {
-            "src": "/icons/icon-maskable.svg",
+            "src": "/icons/icon-maskable-512.png",
             "sizes": "512x512",
-            "type": "image/svg+xml",
+            "type": "image/png",
             "purpose": "maskable"
         }
     ],
@@ -29,12 +29,12 @@
         {
             "name": "患者一覧",
             "url": "/index.html?tab=patients",
-            "icons": [{ "src": "/icons/icon-192.svg", "sizes": "192x192" }]
+            "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
         },
         {
             "name": "カルテ記録",
             "url": "/index.html?tab=karte",
-            "icons": [{ "src": "/icons/icon-192.svg", "sizes": "192x192" }]
+            "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
         }
     ]
 }

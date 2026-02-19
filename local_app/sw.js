@@ -3,7 +3,7 @@
  * アセットキャッシュによる完全オフライン対応
  */
 
-const CACHE_NAME = 'emr-v1.0.0-1771484454';
+const CACHE_NAME = 'emr-v1.0.0-1771485402';
 
 const PRECACHE_ASSETS = [
     '/',
@@ -13,9 +13,12 @@ const PRECACHE_ASSETS = [
     '/emr.calc.js',
     '/version.js',
     '/manifest.json',
-    '/icons/icon-192.svg',
-    '/icons/icon-512.svg',
-    '/icons/icon-maskable.svg',
+    '/icons/icon-192.png',
+    '/icons/icon-512.png',
+    '/icons/icon-maskable-512.png',
+    '/icons/apple-touch-icon.png',
+    '/icons/favicon-32.png',
+    '/icons/favicon-16.png',
     'https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js',
     'https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js'
 ];
