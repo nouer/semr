@@ -1366,3 +1366,39 @@ body {
 .media-lightbox-close:hover {
     background: rgba(220,38,38,0.9);
 }
+
+/* === 表示設定 === */
+.field-hidden { display: none !important; }
+.tab-hidden { display: none !important; }
+
+/* 表示設定セクション */
+.display-settings-section h4 {
+    margin: 16px 0 8px;
+    font-size: 0.95em;
+    color: var(--gray-700);
+    border-bottom: 1px solid var(--gray-200);
+    padding-bottom: 4px;
+}
+.display-settings-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px 16px;
+}
+.display-settings-grid label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.9em;
+    cursor: pointer;
+    padding: 4px 0;
+}
+.display-settings-grid input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--primary);
+}
+@media (max-width: 600px) {
+    .display-settings-grid {
+        grid-template-columns: 1fr;
+    }
+}

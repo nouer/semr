@@ -45,8 +45,8 @@
     <nav class="tab-nav" id="tab-nav">
         <button data-tab="patients" class="active">📋 患者</button>
         <button data-tab="karte">🩺 カルテ</button>
-        <button data-tab="prescription">💊 処方</button>
-        <button data-tab="lab">🔬 検査</button>
+        <button data-tab="prescription" data-tab-key="prescription">💊 処方</button>
+        <button data-tab="lab" data-tab-key="lab">🔬 検査</button>
         <button data-tab="history">📅 履歴</button>
         <button data-tab="ai" id="ai-tab-btn" style="display:none;">🤖 AI診断</button>
         <button data-tab="settings">⚙️ 設定</button>
@@ -110,49 +110,49 @@
             <div class="card">
                 <h3>💓 バイタルサイン</h3>
                 <div class="vitals-grid">
-                    <div class="form-group">
+                    <div class="form-group" data-field-key="karte.temperature">
                         <label>体温 (℃)</label>
                         <input type="number" id="input-temperature" step="0.1" min="34" max="42" placeholder="36.5" autocomplete="off">
                     </div>
-                    <div class="form-group">
+                    <div class="form-group" data-field-key="karte.systolic">
                         <label>収縮期血圧 (mmHg)</label>
                         <input type="number" id="input-systolic" min="50" max="300" placeholder="120" autocomplete="off">
                     </div>
-                    <div class="form-group">
+                    <div class="form-group" data-field-key="karte.diastolic">
                         <label>拡張期血圧 (mmHg)</label>
                         <input type="number" id="input-diastolic" min="30" max="200" placeholder="80" autocomplete="off">
                     </div>
-                    <div class="form-group">
+                    <div class="form-group" data-field-key="karte.pulse">
                         <label>脈拍 (bpm)</label>
                         <input type="number" id="input-pulse" min="20" max="300" placeholder="72" autocomplete="off">
                     </div>
-                    <div class="form-group">
+                    <div class="form-group" data-field-key="karte.spo2">
                         <label>SpO2 (%)</label>
                         <input type="number" id="input-spo2" min="50" max="100" placeholder="98" autocomplete="off">
                     </div>
-                    <div class="form-group">
+                    <div class="form-group" data-field-key="karte.respiratoryRate">
                         <label>呼吸数 (回/分)</label>
                         <input type="number" id="input-respiratory-rate" min="1" max="60" placeholder="16" autocomplete="off">
                     </div>
-                    <div class="form-group">
+                    <div class="form-group" data-field-key="karte.weight">
                         <label>体重 (kg)</label>
                         <input type="number" id="input-weight" step="0.1" min="1" max="300" placeholder="65.0" autocomplete="off">
                     </div>
-                    <div class="form-group">
+                    <div class="form-group" data-field-key="karte.height">
                         <label>身長 (cm)</label>
                         <input type="number" id="input-height" min="30" max="250" placeholder="170" autocomplete="off">
                     </div>
                 </div>
             </div>
             <!-- 施術メモ -->
-            <div class="card">
+            <div class="card" data-field-key="karte.treatmentMemo">
                 <div class="form-group">
                     <label>施術内容メモ</label>
                     <textarea id="input-treatment-memo" rows="2" placeholder="施術内容の記録" autocomplete="off"></textarea>
                 </div>
             </div>
             <!-- 写真添付 -->
-            <div class="card">
+            <div class="card" data-field-key="karte.kartePhoto">
                 <h3>📷 写真添付</h3>
                 <div class="media-attach-area" id="record-media-area" data-message-id="record-message">
                     <div class="media-drop-zone">
@@ -191,7 +191,7 @@
     </div>
 
     <!-- 処方タブ -->
-    <div id="tab-prescription" class="tab-content">
+    <div id="tab-prescription" class="tab-content" data-tab-key="prescription">
         <div id="no-patient-prescription" class="card">
             <p class="text-center text-muted">患者タブから患者を選択してください</p>
         </div>
@@ -199,7 +199,7 @@
             <div id="prescription-patient-bar" class="patient-info-bar"></div>
             <div class="card">
                 <h3>💊 処方入力</h3>
-                <div class="form-group">
+                <div class="form-group" data-field-key="prescription.prescriptionDate">
                     <label>処方日</label>
                     <input type="date" id="input-prescribed-at" autocomplete="off">
                 </div>
@@ -208,21 +208,21 @@
                     <input type="text" id="input-medicine" placeholder="薬剤名" autocomplete="off">
                 </div>
                 <div class="form-row">
-                    <div class="form-group">
+                    <div class="form-group" data-field-key="prescription.dosage">
                         <label>用量</label>
                         <input type="text" id="input-dosage" placeholder="1回1錠" autocomplete="off">
                     </div>
-                    <div class="form-group">
+                    <div class="form-group" data-field-key="prescription.frequency">
                         <label>用法</label>
                         <input type="text" id="input-frequency" placeholder="毎食後" autocomplete="off">
                     </div>
                 </div>
                 <div class="form-row">
-                    <div class="form-group">
+                    <div class="form-group" data-field-key="prescription.days">
                         <label>処方日数</label>
                         <input type="number" id="input-days" min="1" max="365" placeholder="7" autocomplete="off">
                     </div>
-                    <div class="form-group">
+                    <div class="form-group" data-field-key="prescription.prescriptionMemo">
                         <label>備考</label>
                         <input type="text" id="input-prescription-memo" placeholder="備考" autocomplete="off">
                     </div>
@@ -238,7 +238,7 @@
     </div>
 
     <!-- 検査タブ -->
-    <div id="tab-lab" class="tab-content">
+    <div id="tab-lab" class="tab-content" data-tab-key="lab">
         <div id="no-patient-lab" class="card">
             <p class="text-center text-muted">患者タブから患者を選択してください</p>
         </div>
@@ -265,7 +265,7 @@
             <div class="card">
                 <h3>🔬 検査結果入力</h3>
                 <div class="form-row">
-                    <div class="form-group">
+                    <div class="form-group" data-field-key="lab.examinedAt">
                         <label>検査日 *</label>
                         <input type="date" id="input-examined-at" autocomplete="off">
                     </div>
@@ -288,17 +288,17 @@
                         <label>検査値 *</label>
                         <input type="text" id="input-lab-value" placeholder="例: 5800" autocomplete="off">
                     </div>
-                    <div class="form-group">
+                    <div class="form-group" data-field-key="lab.unit">
                         <label>単位</label>
                         <input type="text" id="input-lab-unit" placeholder="例: /μL" autocomplete="off">
                     </div>
                 </div>
                 <div class="form-row">
-                    <div class="form-group">
+                    <div class="form-group" data-field-key="lab.refMin">
                         <label>基準値下限</label>
                         <input type="text" id="input-lab-ref-min" placeholder="例: 3500" autocomplete="off">
                     </div>
-                    <div class="form-group">
+                    <div class="form-group" data-field-key="lab.refMax">
                         <label>基準値上限</label>
                         <input type="text" id="input-lab-ref-max" placeholder="例: 9700" autocomplete="off">
                     </div>
@@ -313,7 +313,7 @@
                             <option value="abnormal">異常</option>
                         </select>
                     </div>
-                    <div class="form-group">
+                    <div class="form-group" data-field-key="lab.labMemo">
                         <label>備考</label>
                         <input type="text" id="input-lab-memo" placeholder="備考" autocomplete="off">
                     </div>
@@ -394,6 +394,62 @@
             <hr>
             <button class="btn btn-danger btn-sm" id="delete-all-btn">🗑️ 全データ削除</button>
         </div>
+        <!-- 表示設定 -->
+        <div class="card">
+            <h3>👁️ 表示設定</h3>
+            <div class="display-settings-section">
+                <h4>タブ表示</h4>
+                <div class="display-settings-grid">
+                    <label><input type="checkbox" data-display-key="tabs.prescription" checked> 💊 処方タブ</label>
+                    <label><input type="checkbox" data-display-key="tabs.lab" checked> 🔬 検査タブ</label>
+                </div>
+                <h4>患者情報フィールド</h4>
+                <div class="display-settings-grid">
+                    <label><input type="checkbox" data-display-key="fields.patient.code" checked> 患者コード</label>
+                    <label><input type="checkbox" data-display-key="fields.patient.kana" checked> ふりがな</label>
+                    <label><input type="checkbox" data-display-key="fields.patient.phone" checked> 電話番号</label>
+                    <label><input type="checkbox" data-display-key="fields.patient.email" checked> メールアドレス</label>
+                    <label><input type="checkbox" data-display-key="fields.patient.insurance" checked> 保険証番号</label>
+                    <label><input type="checkbox" data-display-key="fields.patient.address" checked> 住所</label>
+                    <label><input type="checkbox" data-display-key="fields.patient.emergency" checked> 緊急連絡先</label>
+                    <label><input type="checkbox" data-display-key="fields.patient.firstVisit" checked> 初診日</label>
+                    <label><input type="checkbox" data-display-key="fields.patient.doctor" checked> 担当施術者</label>
+                    <label><input type="checkbox" data-display-key="fields.patient.memo" checked> 備考</label>
+                    <label><input type="checkbox" data-display-key="fields.patient.allergies" checked> アレルギー情報</label>
+                    <label><input type="checkbox" data-display-key="fields.patient.histories" checked> 既往歴</label>
+                    <label><input type="checkbox" data-display-key="fields.patient.photo" checked> 写真添付</label>
+                </div>
+                <h4>カルテフィールド</h4>
+                <div class="display-settings-grid">
+                    <label><input type="checkbox" data-display-key="fields.karte.temperature" checked> 体温</label>
+                    <label><input type="checkbox" data-display-key="fields.karte.systolic" checked> 収縮期血圧</label>
+                    <label><input type="checkbox" data-display-key="fields.karte.diastolic" checked> 拡張期血圧</label>
+                    <label><input type="checkbox" data-display-key="fields.karte.pulse" checked> 脈拍</label>
+                    <label><input type="checkbox" data-display-key="fields.karte.spo2" checked> SpO2</label>
+                    <label><input type="checkbox" data-display-key="fields.karte.respiratoryRate" checked> 呼吸数</label>
+                    <label><input type="checkbox" data-display-key="fields.karte.weight" checked> 体重</label>
+                    <label><input type="checkbox" data-display-key="fields.karte.height" checked> 身長</label>
+                    <label><input type="checkbox" data-display-key="fields.karte.treatmentMemo" checked> 施術内容メモ</label>
+                    <label><input type="checkbox" data-display-key="fields.karte.kartePhoto" checked> 写真添付</label>
+                </div>
+                <h4>処方フィールド</h4>
+                <div class="display-settings-grid">
+                    <label><input type="checkbox" data-display-key="fields.prescription.prescriptionDate" checked> 処方日</label>
+                    <label><input type="checkbox" data-display-key="fields.prescription.dosage" checked> 用量</label>
+                    <label><input type="checkbox" data-display-key="fields.prescription.frequency" checked> 用法</label>
+                    <label><input type="checkbox" data-display-key="fields.prescription.days" checked> 処方日数</label>
+                    <label><input type="checkbox" data-display-key="fields.prescription.prescriptionMemo" checked> 備考</label>
+                </div>
+                <h4>検査フィールド</h4>
+                <div class="display-settings-grid">
+                    <label><input type="checkbox" data-display-key="fields.lab.examinedAt" checked> 検査日</label>
+                    <label><input type="checkbox" data-display-key="fields.lab.unit" checked> 単位</label>
+                    <label><input type="checkbox" data-display-key="fields.lab.refMin" checked> 基準値下限</label>
+                    <label><input type="checkbox" data-display-key="fields.lab.refMax" checked> 基準値上限</label>
+                    <label><input type="checkbox" data-display-key="fields.lab.labMemo" checked> 備考</label>
+                </div>
+            </div>
+        </div>
         <!-- AI診断設定 -->
         <div class="card">
             <h3>🤖 AI診断設定</h3>
@@ -442,7 +498,7 @@
             <form id="patient-form" autocomplete="off">
                 <input type="hidden" id="edit-patient-id">
                 <div class="form-row">
-                    <div class="form-group">
+                    <div class="form-group" data-field-key="patient.code">
                         <label>患者コード</label>
                         <input type="text" id="input-patient-code" placeholder="自動採番" autocomplete="off">
                     </div>
@@ -452,7 +508,7 @@
                     </div>
                 </div>
                 <div class="form-row">
-                    <div class="form-group">
+                    <div class="form-group" data-field-key="patient.kana">
                         <label>ふりがな</label>
                         <input type="text" id="input-patient-kana" placeholder="やまだ たろう" autocomplete="off">
                     </div>
@@ -471,26 +527,26 @@
                             <option value="other">その他</option>
                         </select>
                     </div>
-                    <div class="form-group">
+                    <div class="form-group" data-field-key="patient.phone">
                         <label>電話番号</label>
                         <input type="tel" id="input-patient-phone" placeholder="090-1234-5678" autocomplete="off">
                     </div>
                 </div>
                 <div class="form-row">
-                    <div class="form-group">
+                    <div class="form-group" data-field-key="patient.email">
                         <label>メールアドレス</label>
                         <input type="email" id="input-patient-email" placeholder="example@mail.com" autocomplete="off">
                     </div>
-                    <div class="form-group">
+                    <div class="form-group" data-field-key="patient.insurance">
                         <label>保険証番号</label>
                         <input type="text" id="input-patient-insurance" placeholder="12345678" autocomplete="off">
                     </div>
                 </div>
-                <div class="form-group">
+                <div class="form-group" data-field-key="patient.address">
                     <label>住所</label>
                     <input type="text" id="input-patient-address" placeholder="東京都渋谷区..." autocomplete="off">
                 </div>
-                <div class="form-group">
+                <div class="form-group" data-field-key="patient.emergency">
                     <label>緊急連絡先</label>
                     <div class="form-row">
                         <input type="text" id="input-emergency-name" placeholder="氏名" autocomplete="off">
@@ -499,33 +555,33 @@
                     </div>
                 </div>
                 <div class="form-row">
-                    <div class="form-group">
+                    <div class="form-group" data-field-key="patient.firstVisit">
                         <label>初診日</label>
                         <input type="date" id="input-patient-first-visit" autocomplete="off">
                     </div>
-                    <div class="form-group">
+                    <div class="form-group" data-field-key="patient.doctor">
                         <label>担当施術者</label>
                         <input type="text" id="input-patient-practitioner" placeholder="田中 先生" autocomplete="off">
                     </div>
                 </div>
-                <div class="form-group">
+                <div class="form-group" data-field-key="patient.memo">
                     <label>備考</label>
                     <textarea id="input-patient-memo" rows="2" placeholder="備考" autocomplete="off"></textarea>
                 </div>
                 <!-- アレルギー一覧 -->
-                <div class="form-section">
+                <div class="form-section" data-field-key="patient.allergies">
                     <h4>⚠️ アレルギー情報</h4>
                     <div id="allergy-list-form"></div>
                     <button type="button" class="btn btn-sm btn-secondary" id="add-allergy-btn">＋ アレルギーを追加</button>
                 </div>
                 <!-- 既往歴一覧 -->
-                <div class="form-section">
+                <div class="form-section" data-field-key="patient.histories">
                     <h4>📋 既往歴</h4>
                     <div id="history-list-form"></div>
                     <button type="button" class="btn btn-sm btn-secondary" id="add-history-btn">＋ 既往歴を追加</button>
                 </div>
                 <!-- 写真添付 -->
-                <div class="form-section">
+                <div class="form-section" data-field-key="patient.photo">
                     <h4>📷 写真添付</h4>
                     <div class="media-attach-area" id="patient-media-area" data-message-id="patient-form-message">
                         <div class="media-drop-zone">

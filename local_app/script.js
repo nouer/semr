@@ -2,7 +2,7 @@
  * script.js - 電子カルテ (emr) メインロジック
  */
 const DB_NAME = 'emr_db';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 const MEDIA_MAX_PER_RECORD = 5;
 const MEDIA_MAX_LONG_SIDE = 1200;
 const MEDIA_JPEG_QUALITY = 0.8;
@@ -63,6 +63,11 @@ function openDB() {
                 const mediaStore = db.createObjectStore('media', { keyPath: 'id' });
                 mediaStore.createIndex('parentId', 'parentId', { unique: false });
                 mediaStore.createIndex('parentType', 'parentType', { unique: false });
+            }
+
+            // app_settings ストア (v3)
+            if (!db.objectStoreNames.contains('app_settings')) {
+                db.createObjectStore('app_settings', { keyPath: 'id' });
             }
         };
         request.onsuccess = (event) => resolve(event.target.result);
@@ -196,6 +201,48 @@ const RECORDS_STORE = 'records';
 const PRESCRIPTIONS_STORE = 'prescriptions';
 const LAB_RESULTS_STORE = 'lab_results';
 const MEDIA_STORE = 'media';
+const APP_SETTINGS_STORE = 'app_settings';
+
+// ===== 表示設定 =====
+
+function getDefaultDisplaySettings() {
+    return {
+        id: 'display_settings',
+        tabs: { prescription: true, lab: true },
+        fields: {
+            patient: { code: true, kana: true, phone: true, email: true, insurance: true, address: true, emergency: true, firstVisit: true, doctor: true, memo: true, allergies: true, histories: true, photo: true },
+            karte: { temperature: true, systolic: true, diastolic: true, pulse: true, spo2: true, respiratoryRate: true, weight: true, height: true, treatmentMemo: true, kartePhoto: true },
+            prescription: { prescriptionDate: true, dosage: true, frequency: true, days: true, prescriptionMemo: true },
+            lab: { examinedAt: true, unit: true, refMin: true, refMax: true, labMemo: true }
+        }
+    };
+}
+
+async function loadDisplaySettings() {
+    try {
+        const db = await openDB();
+        return new Promise((resolve) => {
+            const tx = db.transaction(APP_SETTINGS_STORE, 'readonly');
+            const store = tx.objectStore(APP_SETTINGS_STORE);
+            const request = store.get('display_settings');
+            request.onsuccess = () => resolve(request.result || getDefaultDisplaySettings());
+            request.onerror = () => resolve(getDefaultDisplaySettings());
+        });
+    } catch (e) {
+        return getDefaultDisplaySettings();
+    }
+}
+
+async function saveDisplaySettings(settings) {
+    settings.id = 'display_settings';
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(APP_SETTINGS_STORE, 'readwrite');
+        tx.objectStore(APP_SETTINGS_STORE).put(settings);
+        tx.oncomplete = () => resolve();
+        tx.onerror = (event) => reject(event.target.error);
+    });
+}
 
 // ===== ドメインヘルパー関数 =====
 
@@ -2596,6 +2643,7 @@ async function exportData() {
         }
 
         const allMedia = await getAllFromStore('media');
+        const displaySettings = await loadDisplaySettings();
 
         const data = {
             version: (window.APP_INFO || {}).version || '1.0.0',
@@ -2606,7 +2654,8 @@ async function exportData() {
             prescriptions: allPrescriptions,
             labResults: allLabResults,
             media: allMedia,
-            aiMemo: localStorage.getItem('emr_ai_memo') || ''
+            aiMemo: localStorage.getItem('emr_ai_memo') || '',
+            displaySettings: displaySettings
         };
 
         const json = JSON.stringify(data, null, 2);
@@ -2732,6 +2781,12 @@ async function importData(event) {
             if (aiMemoInput) aiMemoInput.value = data.aiMemo;
         }
 
+        // 表示設定の復元
+        if (data.displaySettings) {
+            await saveDisplaySettings(data.displaySettings);
+            await initDisplaySettings();
+        }
+
         showMessage('data-message',
             `インポート完了: 患者${importedPatients}件、記録${importedRecords}件、処方${importedPrescriptions}件、検査${importedLabResults}件` +
             (importedMedia > 0 ? `、メディア${importedMedia}件` : ''),
@@ -2758,7 +2813,7 @@ async function deleteAllData() {
         const db = await openDB();
 
         // 全ストアをクリア
-        const stores = [PATIENTS_STORE, RECORDS_STORE, PRESCRIPTIONS_STORE, LAB_RESULTS_STORE, MEDIA_STORE];
+        const stores = [PATIENTS_STORE, RECORDS_STORE, PRESCRIPTIONS_STORE, LAB_RESULTS_STORE, MEDIA_STORE, APP_SETTINGS_STORE];
         await new Promise((resolve, reject) => {
             const tx = db.transaction(stores, 'readwrite');
             for (const storeName of stores) {
@@ -2773,6 +2828,7 @@ async function deleteAllData() {
 
         // UI更新
         await renderPatientList();
+        await initDisplaySettings();
 
         showMessage('data-message', '全データを削除しました', 'success');
     } catch (error) {
@@ -3617,7 +3673,75 @@ async function refreshKarteTab() {
 }
 
 // ============================================================
-// 9. initApp() - メイン初期化
+// 9. 表示設定の適用・初期化
+// ============================================================
+
+function applyDisplaySettings(settings) {
+    // タブの表示/非表示
+    for (const [tabKey, visible] of Object.entries(settings.tabs)) {
+        document.querySelectorAll(`[data-tab-key="${tabKey}"]`).forEach(el => {
+            el.classList.toggle('tab-hidden', !visible);
+        });
+    }
+
+    // 非表示タブが選択中ならpatientsタブにフォールバック
+    const activeTabBtn = document.querySelector('#tab-nav button.active');
+    if (activeTabBtn && activeTabBtn.classList.contains('tab-hidden')) {
+        const patientsBtn = document.querySelector('#tab-nav button[data-tab="patients"]');
+        if (patientsBtn) patientsBtn.click();
+    }
+
+    // フィールドの表示/非表示
+    for (const [section, fields] of Object.entries(settings.fields)) {
+        for (const [fieldName, visible] of Object.entries(fields)) {
+            const key = `${section}.${fieldName}`;
+            document.querySelectorAll(`[data-field-key="${key}"]`).forEach(el => {
+                el.classList.toggle('field-hidden', !visible);
+            });
+        }
+    }
+}
+
+function collectDisplaySettingsFromUI() {
+    const settings = getDefaultDisplaySettings();
+    document.querySelectorAll('[data-display-key]').forEach(checkbox => {
+        const path = checkbox.dataset.displayKey.split('.');
+        if (path.length === 2) {
+            settings[path[0]][path[1]] = checkbox.checked;
+        } else if (path.length === 3) {
+            settings[path[0]][path[1]][path[2]] = checkbox.checked;
+        }
+    });
+    return settings;
+}
+
+async function initDisplaySettings() {
+    const settings = await loadDisplaySettings();
+
+    // UIチェックボックスに反映
+    document.querySelectorAll('[data-display-key]').forEach(checkbox => {
+        const path = checkbox.dataset.displayKey.split('.');
+        let value = settings;
+        for (const key of path) {
+            value = value && value[key];
+        }
+        checkbox.checked = value !== false;
+    });
+
+    applyDisplaySettings(settings);
+
+    // changeイベントで自動保存
+    document.querySelectorAll('[data-display-key]').forEach(checkbox => {
+        checkbox.addEventListener('change', async () => {
+            const newSettings = collectDisplaySettingsFromUI();
+            await saveDisplaySettings(newSettings);
+            applyDisplaySettings(newSettings);
+        });
+    });
+}
+
+// ============================================================
+// 10. initApp() - メイン初期化
 // ============================================================
 
 /**
@@ -3636,6 +3760,7 @@ async function initApp() {
     initAISettings();
     initAIDiagnosis();
     updateAITabVisibility();
+    await initDisplaySettings();
 
     // フォームハンドラのセットアップ
     document.getElementById('save-record-btn').addEventListener('click', saveRecord);

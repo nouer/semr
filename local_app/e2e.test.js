@@ -124,6 +124,7 @@ describe('E2E Test: emr App', () => {
                 await clearStore('lab_results');
                 await clearStore('ai_conversations');
                 await clearStore('media');
+                await clearStore('app_settings');
             } catch (e) {}
             // localStorage関連キー削除
             localStorage.removeItem('emr_ai_key');
@@ -1573,6 +1574,235 @@ describe('E2E Test: emr App', () => {
 
         // ビューポートを元に戻す
         await page.setViewport({ width: 1280, height: 800 });
+
+        expect(pageErrors.length).toBe(0);
+    }, 60000);
+
+    // === 表示設定テスト ===
+
+    test('E2E-040: 表示設定のデフォルト状態確認（全タブ・全フィールド表示）', async () => {
+        await page.goto(baseUrl, { waitUntil: 'networkidle0', timeout: 60000 });
+        await waitForAppReady();
+        await cleanupTestData();
+        await page.goto(baseUrl, { waitUntil: 'networkidle0', timeout: 60000 });
+        await waitForAppReady();
+
+        // 処方タブと検査タブが表示されている
+        const rxTabVisible = await isVisible('button[data-tab="prescription"]');
+        expect(rxTabVisible).toBe(true);
+        const labTabVisible = await isVisible('button[data-tab="lab"]');
+        expect(labTabVisible).toBe(true);
+
+        // 設定タブに移動してチェックボックスを確認
+        await page.click('button[data-tab="settings"]');
+        const allChecked = await page.evaluate(() => {
+            const checkboxes = document.querySelectorAll('[data-display-key]');
+            return Array.from(checkboxes).every(cb => cb.checked);
+        });
+        expect(allChecked).toBe(true);
+
+        expect(pageErrors.length).toBe(0);
+    }, 60000);
+
+    test('E2E-041: 処方タブ非表示設定 → タブが消えることを確認', async () => {
+        await page.goto(baseUrl, { waitUntil: 'networkidle0', timeout: 60000 });
+        await waitForAppReady();
+        await cleanupTestData();
+        await page.goto(baseUrl, { waitUntil: 'networkidle0', timeout: 60000 });
+        await waitForAppReady();
+
+        // 設定タブに移動
+        await page.click('button[data-tab="settings"]');
+        await page.waitForSelector('#tab-settings.active', { timeout: 5000 });
+
+        // 処方タブのチェックを外す
+        await page.click('[data-display-key="tabs.prescription"]');
+        await page.waitForFunction(() => {
+            const btn = document.querySelector('button[data-tab-key="prescription"]');
+            return btn && btn.classList.contains('tab-hidden');
+        }, { timeout: 5000 });
+
+        // 処方タブボタンが非表示になる
+        const rxTabVisible = await isVisible('button[data-tab-key="prescription"]');
+        expect(rxTabVisible).toBe(false);
+
+        // 処方タブコンテンツも非表示
+        const rxContentVisible = await isVisible('#tab-prescription');
+        expect(rxContentVisible).toBe(false);
+
+        // チェックを戻す
+        await page.click('[data-display-key="tabs.prescription"]');
+        await page.waitForFunction(() => {
+            const btn = document.querySelector('button[data-tab-key="prescription"]');
+            return btn && !btn.classList.contains('tab-hidden');
+        }, { timeout: 5000 });
+        const rxTabVisibleAgain = await isVisible('button[data-tab-key="prescription"]');
+        expect(rxTabVisibleAgain).toBe(true);
+
+        expect(pageErrors.length).toBe(0);
+    }, 60000);
+
+    test('E2E-042: 検査タブ非表示設定 → タブが消えることを確認', async () => {
+        await page.goto(baseUrl, { waitUntil: 'networkidle0', timeout: 60000 });
+        await waitForAppReady();
+        await cleanupTestData();
+        await page.goto(baseUrl, { waitUntil: 'networkidle0', timeout: 60000 });
+        await waitForAppReady();
+
+        // 設定タブに移動
+        await page.click('button[data-tab="settings"]');
+        await page.waitForSelector('#tab-settings.active', { timeout: 5000 });
+
+        // 検査タブのチェックを外す
+        await page.click('[data-display-key="tabs.lab"]');
+        await page.waitForFunction(() => {
+            const btn = document.querySelector('button[data-tab-key="lab"]');
+            return btn && btn.classList.contains('tab-hidden');
+        }, { timeout: 5000 });
+
+        // 検査タブボタンが非表示になる
+        const labTabVisible = await isVisible('button[data-tab-key="lab"]');
+        expect(labTabVisible).toBe(false);
+
+        // チェックを戻す
+        await page.click('[data-display-key="tabs.lab"]');
+        await page.waitForFunction(() => {
+            const btn = document.querySelector('button[data-tab-key="lab"]');
+            return btn && !btn.classList.contains('tab-hidden');
+        }, { timeout: 5000 });
+        const labTabVisibleAgain = await isVisible('button[data-tab-key="lab"]');
+        expect(labTabVisibleAgain).toBe(true);
+
+        expect(pageErrors.length).toBe(0);
+    }, 60000);
+
+    test('E2E-043: フィールド非表示設定 → フィールドが消えることを確認', async () => {
+        await page.goto(baseUrl, { waitUntil: 'networkidle0', timeout: 60000 });
+        await waitForAppReady();
+        await cleanupTestData();
+        await page.goto(baseUrl, { waitUntil: 'networkidle0', timeout: 60000 });
+        await waitForAppReady();
+
+        // 設定タブに移動
+        await page.click('button[data-tab="settings"]');
+        await page.waitForSelector('#tab-settings.active', { timeout: 5000 });
+
+        // 患者メモフィールドのチェックを外す
+        await page.click('[data-display-key="fields.patient.memo"]');
+        await page.waitForFunction(() => {
+            const el = document.querySelector('[data-field-key="patient.memo"]');
+            return el && el.classList.contains('field-hidden');
+        }, { timeout: 5000 });
+
+        // 患者タブに移動してからフォームを開く
+        await page.click('button[data-tab="patients"]');
+        await page.waitForSelector('#tab-patients.active', { timeout: 5000 });
+        await page.click('#add-patient-btn');
+        await page.waitForSelector('#patient-form-overlay.show', { timeout: 10000 });
+
+        const memoVisible = await isVisible('[data-field-key="patient.memo"]');
+        expect(memoVisible).toBe(false);
+
+        // フォームを閉じる
+        await page.click('#patient-form-cancel');
+
+        // 設定タブに戻ってチェックを戻す
+        await page.click('button[data-tab="settings"]');
+        await page.click('[data-display-key="fields.patient.memo"]');
+
+        expect(pageErrors.length).toBe(0);
+    }, 60000);
+
+    test('E2E-044: 非表示フィールドがあっても保存が正常に動作する', async () => {
+        await page.goto(baseUrl, { waitUntil: 'networkidle0', timeout: 60000 });
+        await waitForAppReady();
+        await cleanupTestData();
+        await page.goto(baseUrl, { waitUntil: 'networkidle0', timeout: 60000 });
+        await waitForAppReady();
+
+        // 設定タブに移動してふりがなフィールドを非表示に
+        await page.click('button[data-tab="settings"]');
+        await page.waitForSelector('#tab-settings.active', { timeout: 5000 });
+        await page.click('[data-display-key="fields.patient.kana"]');
+
+        // 患者登録（ふりがなフィールドが非表示でも成功する）
+        await page.click('button[data-tab="patients"]');
+        await registerPatient({
+            name: '非表示テスト患者',
+            birth: '1990-01-01',
+            gender: 'male'
+        });
+
+        // 患者リストに表示されることを確認
+        const listText = await page.$eval('#patient-list', el => el.textContent || '');
+        expect(listText).toContain('非表示テスト患者');
+
+        // 設定を戻す
+        await page.click('button[data-tab="settings"]');
+        await page.click('[data-display-key="fields.patient.kana"]');
+
+        expect(pageErrors.length).toBe(0);
+    }, 60000);
+
+    test('E2E-045: エクスポート/インポートで表示設定が保持される', async () => {
+        await page.goto(baseUrl, { waitUntil: 'networkidle0', timeout: 60000 });
+        await waitForAppReady();
+        await cleanupTestData();
+        await page.goto(baseUrl, { waitUntil: 'networkidle0', timeout: 60000 });
+        await waitForAppReady();
+
+        // 設定タブに移動して処方タブを非表示に
+        await page.click('button[data-tab="settings"]');
+        await page.waitForSelector('#tab-settings.active', { timeout: 5000 });
+        await page.click('[data-display-key="tabs.prescription"]');
+
+        // エクスポートデータを取得
+        const exportData = await page.evaluate(async () => {
+            const patients = await getAllPatients();
+            const allMedia = await getAllFromStore('media');
+            const displaySettings = await loadDisplaySettings();
+            return {
+                version: '1.0.0',
+                appName: 'emr',
+                exportedAt: new Date().toISOString(),
+                patients: patients,
+                records: [],
+                prescriptions: [],
+                labResults: [],
+                media: allMedia,
+                aiMemo: '',
+                displaySettings: displaySettings
+            };
+        });
+
+        // 処方タブが非表示の設定がエクスポートに含まれていることを確認
+        expect(exportData.displaySettings.tabs.prescription).toBe(false);
+
+        // 設定をリセット
+        await cleanupTestData();
+        await page.goto(baseUrl, { waitUntil: 'networkidle0', timeout: 60000 });
+        await waitForAppReady();
+
+        // デフォルト状態で処方タブが表示されている
+        const rxTabVisibleBefore = await isVisible('button[data-tab-key="prescription"]');
+        expect(rxTabVisibleBefore).toBe(true);
+
+        // インポートで表示設定を復元
+        await page.evaluate(async (data) => {
+            if (data.displaySettings) {
+                await saveDisplaySettings(data.displaySettings);
+                await initDisplaySettings();
+            }
+        }, exportData);
+
+        // 処方タブが非表示に戻っている
+        const rxTabVisibleAfter = await isVisible('button[data-tab-key="prescription"]');
+        expect(rxTabVisibleAfter).toBe(false);
+
+        // 設定を戻す（クリーンアップ）
+        await page.evaluate(async () => {
+            await clearStore('app_settings');
+        });
 
         expect(pageErrors.length).toBe(0);
     }, 60000);
