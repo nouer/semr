@@ -22,6 +22,11 @@
         "displayName": "e2e",
         "testEnvironment": "node",
         "testMatch": ["**/e2e.test.js"]
+      },
+      {
+        "displayName": "e2e-stress",
+        "testEnvironment": "node",
+        "testMatch": ["**/e2e-stress.test.js"]
       }
     ]
   },
