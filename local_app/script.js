@@ -2680,7 +2680,123 @@ async function exportData() {
 }
 
 /**
- * JSONインポート
+ * データインポート共通処理（進捗表示+IndexedDB書き込み）
+ */
+async function performImport(data, msgElementId) {
+    const pCount = data.patients.length;
+    const rCount = data.records.length;
+    const rxCount = data.prescriptions.length;
+    const lCount = data.labResults.length;
+    const mCount = (data.media && Array.isArray(data.media)) ? data.media.length : 0;
+
+    // 進捗表示の初期化
+    const totalItems = pCount + rCount + rxCount + lCount + mCount;
+    let processedItems = 0;
+    const msgEl = document.getElementById(msgElementId);
+    msgEl.innerHTML = '<span class="progress-text"></span><div class="progress-bar-container"><div class="progress-bar-fill"></div></div>';
+    msgEl.className = 'message show progress';
+    const progressText = msgEl.querySelector('.progress-text');
+    const progressBar = msgEl.querySelector('.progress-bar-fill');
+
+    function updateProgress(label) {
+        const pct = totalItems > 0 ? Math.round((processedItems / totalItems) * 100) : 0;
+        progressText.textContent = `${label}（${pct}%  ${processedItems.toLocaleString()} / ${totalItems.toLocaleString()}件）`;
+        progressBar.style.width = pct + '%';
+    }
+
+    updateProgress('インポート準備中...');
+
+    // 既存IDを取得
+    const existingPatients = await getAllPatients();
+    const existingPatientIds = new Set(existingPatients.map(p => p.id));
+
+    let importedPatients = 0;
+    for (const p of data.patients) {
+        if (!p.id) { processedItems++; continue; }
+        if (existingPatientIds.has(p.id)) { processedItems++; continue; }
+        await addPatient(p);
+        importedPatients++;
+        processedItems++;
+        if (processedItems % 10 === 0) updateProgress('患者データをインポート中...');
+    }
+    updateProgress('患者データ完了、記録をインポート中...');
+
+    let importedRecords = 0;
+    for (const r of data.records) {
+        if (!r.id) { processedItems++; continue; }
+        try {
+            const existing = await getRecord(r.id);
+            if (existing) { processedItems++; continue; }
+        } catch (e) { /* not found */ }
+        await addRecord(r);
+        importedRecords++;
+        processedItems++;
+        if (processedItems % 50 === 0) updateProgress('記録をインポート中...');
+    }
+    updateProgress('記録完了、処方をインポート中...');
+
+    let importedPrescriptions = 0;
+    for (const rx of data.prescriptions) {
+        if (!rx.id) { processedItems++; continue; }
+        try {
+            await addPrescription(rx);
+            importedPrescriptions++;
+        } catch (e) {
+            // 重複IDはスキップ
+        }
+        processedItems++;
+        if (processedItems % 50 === 0) updateProgress('処方をインポート中...');
+    }
+    updateProgress('処方完了、検査をインポート中...');
+
+    let importedLabResults = 0;
+    for (const l of data.labResults) {
+        if (!l.id) { processedItems++; continue; }
+        try {
+            await addLabResult(l);
+            importedLabResults++;
+        } catch (e) {
+            // 重複IDはスキップ
+        }
+        processedItems++;
+        if (processedItems % 50 === 0) updateProgress('検査をインポート中...');
+    }
+
+    // メディアの復元
+    let importedMedia = 0;
+    if (data.media && Array.isArray(data.media)) {
+        updateProgress('メディアをインポート中...');
+        for (const m of data.media) {
+            if (!m.id) { processedItems++; continue; }
+            try {
+                await addToStore('media', m);
+                importedMedia++;
+            } catch (e) {
+                // 重複IDはスキップ
+            }
+            processedItems++;
+            if (processedItems % 10 === 0) updateProgress('メディアをインポート中...');
+        }
+    }
+
+    // AI備考の復元
+    if (data.aiMemo != null) {
+        localStorage.setItem('emr_ai_memo', data.aiMemo);
+        const aiMemoInput = document.getElementById('input-ai-memo');
+        if (aiMemoInput) aiMemoInput.value = data.aiMemo;
+    }
+
+    // 表示設定の復元
+    if (data.displaySettings) {
+        await saveDisplaySettings(data.displaySettings);
+        await initDisplaySettings();
+    }
+
+    return { importedPatients, importedRecords, importedPrescriptions, importedLabResults, importedMedia };
+}
+
+/**
+ * JSONインポート（ファイル選択）
  */
 async function importData(event) {
     const file = event.target.files[0];
@@ -2714,123 +2830,90 @@ async function importData(event) {
             return;
         }
 
-        // 進捗表示の初期化
-        const totalItems = pCount + rCount + rxCount + lCount + mCount;
-        let processedItems = 0;
-        const msgEl = document.getElementById('data-message');
-        msgEl.innerHTML = '<span class="progress-text"></span><div class="progress-bar-container"><div class="progress-bar-fill"></div></div>';
-        msgEl.className = 'message show progress';
-        const progressText = msgEl.querySelector('.progress-text');
-        const progressBar = msgEl.querySelector('.progress-bar-fill');
-
-        function updateProgress(label) {
-            const pct = totalItems > 0 ? Math.round((processedItems / totalItems) * 100) : 0;
-            progressText.textContent = `${label}（${pct}%  ${processedItems.toLocaleString()} / ${totalItems.toLocaleString()}件）`;
-            progressBar.style.width = pct + '%';
-        }
-
-        updateProgress('インポート準備中...');
-
-        // 既存IDを取得
-        const existingPatients = await getAllPatients();
-        const existingPatientIds = new Set(existingPatients.map(p => p.id));
-
-        let importedPatients = 0;
-        for (const p of data.patients) {
-            if (!p.id) { processedItems++; continue; }
-            if (existingPatientIds.has(p.id)) { processedItems++; continue; }
-            await addPatient(p);
-            importedPatients++;
-            processedItems++;
-            if (processedItems % 10 === 0) updateProgress('患者データをインポート中...');
-        }
-        updateProgress('患者データ完了、記録をインポート中...');
-
-        // 各患者のrecords取得用キャッシュ
-        let importedRecords = 0;
-        for (const r of data.records) {
-            if (!r.id) { processedItems++; continue; }
-            try {
-                const existing = await getRecord(r.id);
-                if (existing) { processedItems++; continue; }
-            } catch (e) { /* not found */ }
-            await addRecord(r);
-            importedRecords++;
-            processedItems++;
-            if (processedItems % 50 === 0) updateProgress('記録をインポート中...');
-        }
-        updateProgress('記録完了、処方をインポート中...');
-
-        let importedPrescriptions = 0;
-        for (const rx of data.prescriptions) {
-            if (!rx.id) { processedItems++; continue; }
-            try {
-                await addPrescription(rx);
-                importedPrescriptions++;
-            } catch (e) {
-                // 重複IDはスキップ
-            }
-            processedItems++;
-            if (processedItems % 50 === 0) updateProgress('処方をインポート中...');
-        }
-        updateProgress('処方完了、検査をインポート中...');
-
-        let importedLabResults = 0;
-        for (const l of data.labResults) {
-            if (!l.id) { processedItems++; continue; }
-            try {
-                await addLabResult(l);
-                importedLabResults++;
-            } catch (e) {
-                // 重複IDはスキップ
-            }
-            processedItems++;
-            if (processedItems % 50 === 0) updateProgress('検査をインポート中...');
-        }
-
-        // メディアの復元
-        let importedMedia = 0;
-        if (data.media && Array.isArray(data.media)) {
-            updateProgress('メディアをインポート中...');
-            for (const m of data.media) {
-                if (!m.id) { processedItems++; continue; }
-                try {
-                    await addToStore('media', m);
-                    importedMedia++;
-                } catch (e) {
-                    // 重複IDはスキップ
-                }
-                processedItems++;
-                if (processedItems % 10 === 0) updateProgress('メディアをインポート中...');
-            }
-        }
-
-        // AI備考の復元
-        if (data.aiMemo != null) {
-            localStorage.setItem('emr_ai_memo', data.aiMemo);
-            const aiMemoInput = document.getElementById('input-ai-memo');
-            if (aiMemoInput) aiMemoInput.value = data.aiMemo;
-        }
-
-        // 表示設定の復元
-        if (data.displaySettings) {
-            await saveDisplaySettings(data.displaySettings);
-            await initDisplaySettings();
-        }
+        const result = await performImport(data, 'data-message');
 
         showMessage('data-message',
-            `インポート完了: 患者${importedPatients}件、記録${importedRecords}件、処方${importedPrescriptions}件、検査${importedLabResults}件` +
-            (importedMedia > 0 ? `、メディア${importedMedia}件` : ''),
+            `インポート完了: 患者${result.importedPatients}件、記録${result.importedRecords}件、処方${result.importedPrescriptions}件、検査${result.importedLabResults}件` +
+            (result.importedMedia > 0 ? `、メディア${result.importedMedia}件` : ''),
             'success'
         );
 
-        // 患者リスト再描画
         await renderPatientList();
     } catch (error) {
         showMessage('data-message', 'インポートに失敗しました: ' + error.message, 'error');
     }
 
     event.target.value = '';
+}
+
+/**
+ * サンプルデータのオンライン/オフライン状態制御
+ */
+function updateSampleImportAvailability() {
+    const btn = document.getElementById('import-sample-btn');
+    const note = document.getElementById('sample-data-offline-note');
+    if (!btn || !note) return;
+
+    if (navigator.onLine) {
+        btn.disabled = false;
+        note.style.display = 'none';
+    } else {
+        btn.disabled = true;
+        note.style.display = 'block';
+    }
+}
+
+/**
+ * サンプルデータインポート（オンラインからダウンロード）
+ */
+async function importSampleData() {
+    const btn = document.getElementById('import-sample-btn');
+    const msgId = 'sample-data-message';
+
+    if (!navigator.onLine) {
+        showMessage(msgId, 'オフライン環境ではサンプルデータをインポートできません。', 'error');
+        return;
+    }
+
+    const confirmed = await showConfirm(
+        'サンプルデータのインポート',
+        'サンプルデータ（患者100名、カルテ・処方・検査各10,000件）をダウンロードしてインポートします。既存データとマージされます。',
+        'インポート',
+        'btn-primary'
+    );
+    if (!confirmed) return;
+
+    btn.disabled = true;
+    try {
+        const msgEl = document.getElementById(msgId);
+        msgEl.textContent = 'サンプルデータをダウンロード中...';
+        msgEl.className = 'message show info';
+
+        const response = await fetch('/sample_data.json');
+        if (!response.ok) {
+            throw new Error(`ダウンロードに失敗しました (HTTP ${response.status})`);
+        }
+
+        const data = await response.json();
+
+        const validation = validateImportData(data);
+        if (!validation.valid) {
+            throw new Error(validation.error);
+        }
+
+        const result = await performImport(data, msgId);
+
+        // 完了メッセージを永続表示（自動非表示しない）
+        msgEl.textContent = `インポート完了: 患者${result.importedPatients}件、記録${result.importedRecords}件、処方${result.importedPrescriptions}件、検査${result.importedLabResults}件` +
+            (result.importedMedia > 0 ? `、メディア${result.importedMedia}件` : '');
+        msgEl.className = 'message show success';
+
+        await renderPatientList();
+    } catch (error) {
+        showMessage(msgId, 'サンプルデータのインポートに失敗しました: ' + error.message, 'error');
+    } finally {
+        btn.disabled = false;
+    }
 }
 
 /**
@@ -3821,6 +3904,10 @@ async function initApp() {
     document.getElementById('export-btn').addEventListener('click', exportData);
     document.getElementById('import-file').addEventListener('change', importData);
     document.getElementById('delete-all-btn').addEventListener('click', deleteAllData);
+    document.getElementById('import-sample-btn').addEventListener('click', importSampleData);
+    window.addEventListener('online', updateSampleImportAvailability);
+    window.addEventListener('offline', updateSampleImportAvailability);
+    updateSampleImportAvailability();
     document.getElementById('confirm-cancel').addEventListener('click', () => {
         document.getElementById('confirm-overlay').classList.remove('show');
     });

@@ -478,6 +478,19 @@
             <button class="btn btn-sm" id="check-update-btn">🔄 更新を確認</button>
             <div id="update-check-status"></div>
         </div>
+        <!-- サンプルデータ -->
+        <div class="card">
+            <h3>📋 サンプルデータ</h3>
+            <p class="sample-data-description">
+                動作確認やデモ用のサンプルデータ（患者100名、カルテ・処方・検査各10,000件）をインポートします。
+                既存データとマージされ、重複するIDは自動的にスキップされます。
+            </p>
+            <p class="sample-data-offline-note" id="sample-data-offline-note" style="display:none;">
+                ⚠️ この機能はオンライン環境でのみ利用できます。
+            </p>
+            <button class="btn btn-primary" id="import-sample-btn">📋 サンプルインポート</button>
+            <div id="sample-data-message" class="message"></div>
+        </div>
     </div>
 
     <!-- 確認ダイアログ -->
